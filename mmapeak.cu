@@ -330,6 +330,53 @@ __device__ void mma_f8f8f32_16_8_32_(float *data)
 }
 #endif
 
+
+#if __CUDA_ARCH__ >= 800
+__device__ void mma_spf16f16f32_16_8_16_(half *data)
+{
+    uint32_t d[4] = {0};
+    uint32_t a[2] = {0};
+    uint32_t b[2] = {0};
+
+    // NOTE: 4 choose 2 values here due to sorting by LSB (first index < second_index)
+    // [second_index (bits 3:2)][first_index (bits 1:0)]
+    uint32_t e = 0x88888888; // 1000 packed 8 times in [a,b,c,d] -> selects [a,c]
+
+
+    for (unsigned k = 0; k < N_LOOP_INTERNAL; k++)
+    {
+        /*
+            Ref:
+            .reg .b32 %Ra<2>, %Rb<2>;
+            .reg .f32 %Rc<4>, %Rd<4>;
+            .reg .b32 %Re;
+            mma.sp.sync.aligned.m16n8k16.row.col.f32.bf16.bf16.f32
+            {%Rd0, %Rd1, %Rd2, %Rd3},
+            {%Ra0, %Ra1},
+            {%Rb0, %Rb1},
+            {%Rc0, %Rc1, %Rc2, %Rc3}, %Re, 0x1;
+        */
+
+        asm volatile(
+            "mma.sp::ordered_metadata.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32 {%0, %1, %2, %3}, {%4, %5}, {%6, %7}, "
+            "{%8, %9, %10, %11}, %12, 0x0;\n"
+            : "=r"(d[0]), "=r"(d[1]), "=r"(d[2]), "=r"(d[3])
+            : "r"(a[0]), "r"(a[1]),
+              "r"(b[0]), "r"(b[1]),
+              "r"(d[0]), "r"(d[1]), "r"(d[2]), "r"(d[3]), "r"(e));
+        __syncwarp();
+    }
+
+    asm volatile(
+        "wmma.store.d.sync.aligned.row.m8n8k32.global.s32 [%0], {%1, %2};\n" ::"l"(data), "r"(d[0]), "r"(d[1]));
+    asm volatile(
+        "wmma.store.d.sync.aligned.row.m8n8k32.global.s32 [%0], {%1, %2};\n" ::"l"(data + 64), "r"(d[2]), "r"(d[3]));
+
+}
+
+#endif
+
+
 __global__ void mma_s4s4s32_8_8_32(void *data, int *rc)
 {
     mma_s4_<experimental::precision::s4, int, 8, 8, 32>((int *)data);
@@ -450,6 +497,17 @@ __global__ void mma_f8f8f32_16_8_32(void *data, int *rc)
 }
 #endif
 
+#if __CUDA_ARCH__ >= 800
+__global__ void mma_spf16f16f32_16_8_16(void *data, int *rc){
+    mma_spf16f16f32_16_8_16_((half *)data);
+    *rc = 0;
+}
+#else
+__global__ void mma_spf16f16f32_16_8_16(void *data, int *rc){
+    *rc = 1;
+}
+#endif
+
 __global__ void mma_s8s8s32_16_16_16(void *data, int *rc)
 {
     mma_<signed char, int, 16, 16, 16>((int *)data);
@@ -486,7 +544,7 @@ __global__ void mma_f16f16f32_32_8_16(void *data, int *rc)
     *rc = 0;
 }
 
-#if __CUDA_ARCH__ >= 800
+#if __CUDA_ARCH__ >= 890
 __global__ void mma_bf16bf16f32_16_16_16(void *data, int *rc)
 {
     mma_<__nv_bfloat16, float, 16, 16, 16>((float *)data);
@@ -700,6 +758,8 @@ int main(int argc, char **argv)
         run<float, 32, 8, 16>((void *)mma_bf16bf16f32_32_8_16, targetTime);
         printf("mma_tf32tf32f32_16_16_8\n");
         run<float, 16, 16, 8>((void *)mma_tf32tf32f32_16_16_8, targetTime);
+        printf("mma.sp_f16f16f32_16_8_16\n");
+        run<float, 16, 8, 16>((void *)mma_spf16f16f32_16_8_16, targetTime);
     }
     return 0;
 }
