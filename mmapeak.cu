@@ -345,18 +345,6 @@ __device__ void mma_spf16f16f32_16_8_16_(half *data)
 
     for (unsigned k = 0; k < N_LOOP_INTERNAL; k++)
     {
-        /*
-            Ref:
-            .reg .b32 %Ra<2>, %Rb<2>;
-            .reg .f32 %Rc<4>, %Rd<4>;
-            .reg .b32 %Re;
-            mma.sp.sync.aligned.m16n8k16.row.col.f32.bf16.bf16.f32
-            {%Rd0, %Rd1, %Rd2, %Rd3},
-            {%Ra0, %Ra1},
-            {%Rb0, %Rb1},
-            {%Rc0, %Rc1, %Rc2, %Rc3}, %Re, 0x1;
-        */
-
         asm volatile(
             "mma.sp::ordered_metadata.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32 {%0, %1, %2, %3}, {%4, %5}, {%6, %7}, "
             "{%8, %9, %10, %11}, %12, 0x0;\n"
@@ -390,18 +378,6 @@ __device__ void mma_spf16f16f32_16_8_32_(half *data)
 
     for (unsigned k = 0; k < N_LOOP_INTERNAL; k++)
     {
-        /*
-            Ref:
-            .reg .b32 %Ra<2>, %Rb<2>;
-            .reg .f32 %Rc<4>, %Rd<4>;
-            .reg .b32 %Re;
-            mma.sp.sync.aligned.m16n8k16.row.col.f32.bf16.bf16.f32
-            {%Rd0, %Rd1, %Rd2, %Rd3},
-            {%Ra0, %Ra1},
-            {%Rb0, %Rb1},
-            {%Rc0, %Rc1, %Rc2, %Rc3}, %Re, 0x1;
-        */
-
         asm volatile(
             "mma.sp::ordered_metadata.sync.aligned.m16n8k32.row.col.f32.f16.f16.f32 {%0, %1, %2, %3}, {%4, %5, %6, %7}, {%8, %9, %10, %11}, "
             "{%8, %9, %10, %11}, %12, 0x0;\n"
