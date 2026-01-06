@@ -2,6 +2,7 @@ This fork adds (some) support for the `mma.sp::ordered_metadata` instructions.
 
 Supported instructions:
 - `mma.sp::ordered_metadata.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32`
+- `mma.sp::ordered_metadata.sync.aligned.m16n8k32.row.col.f32.f16.f16.f32`
 
 Tested and working on CUDA Toolkit version 12.8.1 with SM89, no other architectures tested or guaranteed to work. 
 
